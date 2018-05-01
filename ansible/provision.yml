@@ -1,0 +1,52 @@
+---
+- name: Apply common configuration to all nodes
+  hosts: all
+  become: yes
+  roles:
+    - angstwad.docker_ubuntu
+  vars:
+    provisioning: true
+    remoteRootPath: /var/services/squid
+  tasks:
+    - name: Setup // Check if server already conatins the application
+      stat:
+        path: "{{remoteRootPath}}"
+      register: remotePathTested
+
+    - name: Setup // Set up provisioning variable
+      set_fact:
+        provisioning: false
+      when: remotePathTested.stat.isdir is defined and remotePathTested.stat.isdir
+
+    - name: Provisioning // Create application folders
+      when: provisioning
+      file:
+        path: "{{item}}"
+        state: directory
+      with_items:
+      - "{{remoteRootPath}}"
+      - "{{remoteRootPath}}/data/conf"
+      - "{{remoteRootPath}}/data/logs"
+      - "{{remoteRootPath}}/data/cache"
+    
+    - name: Deployment // Stop the instace running
+      when: not provisioning
+      docker_service:
+        project_src: "{{remoteRootPath}}"
+        stopped: true
+
+    - name: Deployment // Upload required files
+      copy:
+        src: "{{item.src}}"
+        dest: "{{item.dest}}"
+      with_items:
+      - { src: "../docker-compose.yml", dest: "{{remoteRootPath}}/docker-compose.yml" }
+      - { src: "../squid.conf", dest: "{{remoteRootPath}}/data/conf/squid.conf" }
+
+    - name: Deployment // Start docker
+      docker_service:
+        project_src: "{{remoteRootPath}}"
+        pull: yes
+
+    - name: Deployment // Clean unused docker images
+      shell: docker image prune --all --force

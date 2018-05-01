@@ -1,0 +1,2 @@
+[api]
+192.168.0.44 ansible_connection=ssh ansible_user=admin ansible_ssh_private_key_file=~/.ssh/lyc77 ansible_python_interpreter=/usr/bin/python3
